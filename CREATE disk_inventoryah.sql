@@ -13,6 +13,7 @@ GO
 DATE		DEVELOPER		DESCRIPTION
 03/04/2022	Atlee Hlavinka	Initial Implementation - Project02.
 03/11/2022	Atlee Hlavinka	Inserted data into tables.
+03/18/2022	Atlee Hlavinka	Created select statements.
 */
 -- =======================================================================
 CREATE DATABASE disk_inventoryah;
@@ -188,10 +189,89 @@ VALUES
 
 
 --Disks not returned
-SELECT 
-	disk_has_borrower_id AS Borrower_id
-	, disk_id AS Disk_id
-	, borrowed_date AS Borrowed_date
-	, returned_date AS Return_date
-FROM disk_has_borrower 
-WHERE returned_date IS NULL
+--SELECT 
+--	disk_has_borrower_id AS Borrower_id
+--	, disk_id AS Disk_id
+--	, borrowed_date AS Borrowed_date
+--	, returned_date AS Return_date
+--FROM disk_has_borrower 
+--WHERE returned_date IS NULL
+
+--Select data -- AH 03/18/2022
+--1.
+SELECT d.disk_name AS 'Disk Name'
+	, d.disk_artist AS 'Disk Artist'
+	, d.release_date AS 'Release Date'
+	, g.description AS 'Genre'
+	, dt.description AS 'Disk Type'
+	, ds.description AS 'Disk Status'
+FROM Disk AS d
+	INNER JOIN disk_type AS dt
+		ON d.disk_type_id = dt.disk_type_id
+	INNER JOIN disk_genre AS g
+		ON d.genre_id = g.genre_id 
+	INNER JOIN disk_status AS ds
+		On d.status_id = ds.status_id
+ORDER BY d.disk_name
+
+--2.
+SELECT db.fname AS 'First Name'
+	, db.lname AS 'Last Name'
+	, disk_name AS 'Disk Name'
+	, dhb.borrowed_date AS 'Borrowed Date'
+	, dhb.returned_date AS 'Returned Date'
+FROM disk_has_borrower AS dhb
+	INNER JOIN disk_borrower AS db
+		ON dhb.borrower_id = db.borrower_id
+	INNER JOIN disk AS d
+		ON dhb.disk_id = d.disk_id
+ORDER BY lname
+
+--3.
+SELECT d.disk_name AS 'Disk Name'
+	, COUNT(*) AS 'Times Borrowed'
+FROM disk_has_borrower AS dhb
+INNER JOIN disk AS d
+	ON dhb.disk_id = d.disk_id
+GROUP BY d.disk_name
+HAVING COUNT(*) > 1
+ORDER BY d.disk_name
+
+--4.
+SELECT d.disk_name AS 'Disk_Name'
+	, dhb.borrowed_date AS 'Borrowed Date'
+	, dhb.returned_date AS 'Returned Date'
+	, db.lname AS 'Last Name'
+	, db.fname AS 'First Name'
+FROM disk AS d
+	INNER JOIN disk_has_borrower AS dhb
+		ON d.disk_id = dhb.disk_id
+	INNER JOIN disk_borrower AS db
+		ON dhb.borrower_id = db.borrower_id
+WHERE dhb.returned_date IS NULL
+
+--5
+GO
+
+CREATE VIEW View_Borrower_No_Loans 
+AS (
+	SELECT fname AS 'First Name'
+		, lname AS 'Last Name'
+	FROM disk_borrower AS db
+	WHERE db.borrower_id NOT IN (SELECT DISTINCT dhb.borrower_id
+								FROM disk_has_borrower AS dhb)
+)
+GO
+			
+SELECT * FROM View_Borrower_No_Loans
+
+--6
+SELECT db.lname AS 'Last Name'
+	, db.fname AS 'First Name'
+	, COUNT(*) AS 'Disks Borrowered'
+FROM disk_borrower AS db
+	INNER JOIN disk_has_borrower AS dhb
+		ON db.borrower_id = dhb.borrower_id
+GROUP BY db.lname, db.fname
+HAVING COUNT(*) > 1
+ORDER BY db.lname
