@@ -14,6 +14,10 @@ DATE		DEVELOPER		DESCRIPTION
 03/04/2022	Atlee Hlavinka	Initial Implementation - Project02.
 03/11/2022	Atlee Hlavinka	Inserted data into tables.
 03/18/2022	Atlee Hlavinka	Created select statements.
+03/28/2022	Atlee Hlavinka	Added SPROCs to INSERT and UPDATE 
+							disk_has_borrower table.
+03/30/2022	Atlee Hlavinka	Added SPROCs to INSERT, UPDATE, and
+							DELETE borrower and disk tables.
 */
 -- =======================================================================
 CREATE DATABASE disk_inventoryah;
@@ -275,3 +279,477 @@ FROM disk_borrower AS db
 GROUP BY db.lname, db.fname
 HAVING COUNT(*) > 1
 ORDER BY db.lname
+
+USE disk_inventoryah
+GO
+
+IF OBJECT_ID('[dbo].[sp_ins_disk_has_borrower]') IS NOT NULL DROP PROCEDURE [dbo].[sp_ins_disk_has_borrower]
+GO
+
+SET ANSI_NULLS ON
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+
+--SPROCs -- AH 03/28/2022
+CREATE PROCEDURE [dbo].[sp_ins_disk_has_borrower]
+(
+	@borrower_id INT
+	, @disk_id INT
+	, @borrowed_date DATE
+	, @returend_date DATE = NULL
+)
+
+AS
+BEGIN
+SET NOCOUNT ON;
+
+BEGIN TRY
+
+	INSERT disk_has_borrower
+		(borrower_id, disk_id, borrowed_date, returned_date)
+	VALUES
+		(@borrower_id, @disk_id, @borrowed_date, @returend_date);
+
+END TRY
+
+BEGIN CATCH
+
+	PRINT 'An error occured.';
+	PRINT 'MESSAGE: ' + CONVERT(VARCHAR(200), ERROR_MESSAGE());
+
+END CATCH
+
+SET NOCOUNT OFF
+END
+GO
+
+GRANT EXEC ON [dbo].[sp_ins_disk_has_borrower] TO diskUserah
+GO
+
+
+
+
+--TEST SP
+EXEC sp_ins_disk_has_borrower 2, 2, '3-28-2022', '3-28-2022'
+GO
+
+EXEC sp_ins_disk_has_borrower 4, 2, '3-28-2022'
+GO
+
+--SELECT DATA
+SELECT *
+FROM disk_has_borrower
+WHERE disk_has_borrower_id > 20
+
+--UPDATE ROW
+UPDATE disk_has_borrower
+SET borrower_id = 8
+	, disk_id = 5
+	, borrowed_date = '2-23-2022'
+	, returned_date = '2-27-2022'
+WHERE disk_has_borrower_id = 21
+
+--SELECT DATA
+SELECT *
+FROM disk_has_borrower
+WHERE disk_has_borrower_id > 20
+
+GO
+
+ALTER PROCEDURE [dbo].[sp_ins_disk_has_borrower]
+(
+	@disk_has_borrower_id INT
+	, @borrower_id INT
+	, @disk_id INT
+	, @borrowed_date DATE
+	, @returend_date DATE = NULL
+)
+
+AS
+BEGIN
+SET NOCOUNT ON;
+
+BEGIN TRY
+
+	UPDATE disk_has_borrower
+	SET borrower_id = @borrower_id
+		, disk_id = @disk_id
+		, borrowed_date = @borrowed_date
+		, returned_date = @returend_date
+	WHERE disk_has_borrower_id = @disk_has_borrower_id;
+END TRY
+
+BEGIN CATCH
+
+	PRINT 'An error occured.';
+	PRINT 'MESSAGE: ' + CONVERT(VARCHAR(200), ERROR_MESSAGE());
+
+END CATCH
+
+SET NOCOUNT OFF
+END
+GO
+
+GRANT EXEC ON [dbo].[sp_ins_disk_has_borrower] TO diskUserah
+GO
+
+
+--TEST SP
+
+EXEC sp_ins_disk_has_borrower 21, 1, 1, '1-28-2022', '1-28-2022'
+GO
+
+DECLARE @TODAY DATE = GETDATE()
+EXEC sp_ins_disk_has_borrower 22, 10, 10, @TODAY
+GO
+
+--SELECT DATA
+SELECT *
+FROM disk_has_borrower
+WHERE disk_has_borrower_id > 20
+
+--DELETE new records
+DELETE
+FROM disk_has_borrower
+WHERE disk_has_borrower_id > 20
+
+--RESET disk_has_borrower_id IDENTITY to max value. Without this the identity will continue to increment from the last known id, including the delete rows.
+DECLARE @MAX INT
+SELECT @MAX = MAX([disk_has_borrower_id]) FROM disk_has_borrower
+IF @MAX IS NULL
+SET @MAX = 0
+DBCC CHECKIDENT ('[disk_has_borrower]', RESEED, @MAX)
+
+--SPROCs -- AH 03/30/2022
+--SPROC - INSERT BORROWER
+IF OBJECT_ID('[dbo].[sp_ins_borrower]') IS NOT NULL DROP PROCEDURE [dbo].[sp_ins_borrower]
+GO
+
+SET ANSI_NULLS ON
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE PROCEDURE sp_ins_borrower
+(
+	@fname NVARCHAR(50)
+	, @lname NVARCHAR(50)
+	, @phone_num VARCHAR(15)
+)
+AS
+BEGIN
+SET NOCOUNT ON;
+
+	BEGIN TRY
+		INSERT INTO disk_borrower (fname, lname, phone_num)
+		VALUES (@fname, @lname, @phone_num)
+	END TRY
+
+	BEGIN CATCH
+		PRINT 'An error occured.';
+		PRINT 'MESSAGE: ' + CONVERT(VARCHAR(200), ERROR_MESSAGE());
+	END CATCH
+
+SET NOCOUNT OFF
+END
+GO
+
+GRANT EXEC ON [dbo].[sp_ins_borrower] TO diskUserah
+GO
+
+EXEC sp_ins_borrower 'Mickey', 'Mouse', '423-534-8655'
+GO
+
+EXEC sp_ins_borrower 'Mickey1', 'Mouse1', '343-534-8655'
+GO
+
+EXEC sp_ins_borrower 'Mickey2', 'Mouse2', NULL
+GO
+
+--SELECT DATA
+SELECT *
+FROM disk_borrower
+WHERE borrower_id > 20
+
+--SPROC - UPDATE BORROWER
+IF OBJECT_ID('[dbo].[sp_upd_borrower]') IS NOT NULL DROP PROCEDURE [dbo].[sp_upd_borrower]
+GO
+
+SET ANSI_NULLS ON
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE PROCEDURE sp_upd_borrower
+(
+	@borrower_id INT
+	, @fname NVARCHAR(50)
+	, @lname NVARCHAR(50)
+	, @phone_num VARCHAR(15)
+)
+AS
+BEGIN
+SET NOCOUNT ON;
+
+	BEGIN TRY
+		UPDATE disk_borrower
+		SET fname = @fname
+			, lname = @lname
+			, phone_num = @phone_num
+		WHERE borrower_id = @borrower_id;
+	END TRY
+
+	BEGIN CATCH
+		PRINT 'An error occured.';
+		PRINT 'MESSAGE: ' + CONVERT(VARCHAR(200), ERROR_MESSAGE());
+	END CATCH
+
+SET NOCOUNT OFF
+END
+GO
+
+GRANT EXEC ON [dbo].[sp_upd_borrower] TO diskUserah
+GO
+
+EXEC sp_upd_borrower 21, 'Not Mickey', 'Not a Mouse', '534-865-3555'
+GO
+
+EXEC sp_upd_borrower 22, 'Not Mickey1', 'Not a Mouse1', NULL
+GO
+
+--SELECT DATA
+SELECT *
+FROM disk_borrower
+WHERE borrower_id IN (21, 22)
+
+
+--SPROC - DELETE BORROWER
+IF OBJECT_ID('[dbo].[sp_del_borrower]') IS NOT NULL DROP PROCEDURE [dbo].[sp_del_borrower]
+GO
+
+SET ANSI_NULLS ON
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE PROCEDURE sp_del_borrower
+(
+	@borrower_id INT
+)
+AS
+BEGIN
+SET NOCOUNT ON;
+
+	BEGIN TRY
+		DELETE FROM disk_borrower
+		WHERE borrower_id = @borrower_id;
+	END TRY
+
+	BEGIN CATCH
+		PRINT 'An error occured.';
+		PRINT 'MESSAGE: ' + CONVERT(VARCHAR(200), ERROR_MESSAGE());
+	END CATCH
+
+SET NOCOUNT OFF
+END
+GO
+
+GRANT EXEC ON [dbo].[sp_del_borrower] TO diskUserah
+GO
+
+--Disk has been borrowered, giving an error
+EXEC sp_del_borrower 4
+GO
+
+--Disk has not been borrowed.
+EXEC sp_del_borrower 21
+GO
+
+SELECT *
+FROM disk_borrower
+WHERE borrower_id IN (4, 21)
+
+
+--SPROC - INSERT DISK
+IF OBJECT_ID('[dbo].[sp_ins_disk]') IS NOT NULL DROP PROCEDURE [dbo].[sp_ins_disk]
+GO
+
+SET ANSI_NULLS ON
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE PROCEDURE sp_ins_disk
+(
+	@disk_name NVARCHAR(40)
+	, @disk_artist NVARCHAR(20)
+	, @release_date DATE
+	, @status_id INT
+	, @disk_type_id INT
+	, @genre_id INT
+)
+AS
+BEGIN
+SET NOCOUNT ON;
+
+	BEGIN TRY
+		INSERT INTO disk (disk_name, disk_artist, release_date, status_id, disk_type_id, genre_id)
+		VALUES (@disk_name, @disk_artist, @release_date, @status_id, @disk_type_id, @genre_id)
+	END TRY
+
+	BEGIN CATCH
+		PRINT 'An error occured.';
+		PRINT 'MESSAGE: ' + CONVERT(VARCHAR(200), ERROR_MESSAGE());
+	END CATCH
+
+SET NOCOUNT OFF
+END
+GO
+
+GRANT EXEC ON [dbo].[sp_ins_disk] TO diskUserah
+GO
+
+EXEC sp_ins_disk 'Stormy Weather', 'The Unknowns', '7/3/2012', 2, 1, 2
+GO
+
+EXEC sp_ins_disk 'Stormy Weather', 'The Unknowns', '7/3/2012', 2, 1, NULL
+GO
+
+--SELECT DATA
+SELECT *
+FROM disk
+WHERE disk_id > 20
+
+
+--SPROC - UPDATE DISK
+IF OBJECT_ID('[dbo].[sp_upd_disk]') IS NOT NULL DROP PROCEDURE [dbo].[sp_upd_disk]
+GO
+
+SET ANSI_NULLS ON
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE PROCEDURE sp_upd_disk
+(
+	@disk_id INT
+	, @disk_name NVARCHAR(40)
+	, @disk_artist NVARCHAR(20)
+	, @release_date DATE
+	, @status_id INT
+	, @disk_type_id INT
+	, @genre_id INT
+)
+AS
+BEGIN
+SET NOCOUNT ON;
+
+	BEGIN TRY
+		UPDATE disk
+		SET disk_name = @disk_name
+			, disk_artist = @disk_artist
+			, release_date = @release_date
+			, status_id = @status_id
+			, disk_type_id = @disk_type_id
+			, genre_id = @genre_id
+		WHERE disk_id = @disk_id;
+	END TRY
+
+	BEGIN CATCH
+		PRINT 'An error occured.';
+		PRINT 'MESSAGE: ' + CONVERT(VARCHAR(200), ERROR_MESSAGE());
+	END CATCH
+
+SET NOCOUNT OFF
+END
+GO
+
+GRANT EXEC ON [dbo].[sp_upd_disk] TO diskUserah
+GO
+
+EXEC sp_upd_disk 4, 'Twilight Zone', 'Greg Alan', '2014-03-12', 3, 2, 3
+GO
+EXEC sp_upd_disk 6, 'Sun', 'The Updates', NULL, 3, 2, 3
+GO
+
+--SELECT DATA
+SELECT *
+FROM disk
+WHERE disk_id IN (4, 6)
+
+
+--SPROC - DELETE DISK
+IF OBJECT_ID('[dbo].[sp_del_disk]') IS NOT NULL DROP PROCEDURE [dbo].[sp_del_disk]
+GO
+
+SET ANSI_NULLS ON
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE PROCEDURE sp_del_disk
+(
+	@disk_id INT
+)
+AS
+BEGIN
+SET NOCOUNT ON;
+
+	BEGIN TRY
+		DELETE FROM disk
+		WHERE disk_id = @disk_id;
+	END TRY
+
+	BEGIN CATCH
+		PRINT 'An error occured.';
+		PRINT 'MESSAGE: ' + CONVERT(VARCHAR(200), ERROR_MESSAGE());
+	END CATCH
+
+SET NOCOUNT OFF
+END
+GO
+
+GRANT EXEC ON [dbo].[sp_del_disk] TO diskUserah
+GO
+
+--Disk has been borrowered, giving an error
+EXEC sp_del_disk 4
+GO
+
+--Disk has not been borrowed.
+EXEC sp_del_disk 21
+GO
+
+SELECT *
+FROM disk
+WHERE disk_id IN (4, 21)
+
+--DELETE new records
+DELETE
+FROM disk
+WHERE disk_id > 20
+
+DELETE
+FROM disk_borrower
+WHERE borrower_id > 20
+
+--RESET disk_has_borrower_id IDENTITY to max value. Without this the identity will continue to increment from the last known id, including the delete rows.
+DECLARE @MAX2 INT
+SELECT @MAX2 = MAX([disk_id]) FROM disk
+IF @MAX2 IS NULL
+SET @MAX2 = 0
+DBCC CHECKIDENT ('[disk]', RESEED, @MAX2)
+
+DECLARE @MAX3 INT
+SELECT @MAX3 = MAX([borrower_id]) FROM disk_borrower
+IF @MAX3 IS NULL
+SET @MAX3 = 0
+DBCC CHECKIDENT ('[disk_borrower]', RESEED, @MAX3)
